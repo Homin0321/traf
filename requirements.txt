@@ -1,0 +1,7 @@
+streamlit
+trafilatura
+python-dotenv
+google-genai
+markdown
+weasyprint
+youtube-transcript-api

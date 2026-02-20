@@ -106,7 +106,7 @@ def get_video_id(url):
 def get_youtube_transcript(video_id):
     """Fetches the transcript of a YouTube video."""
     try:
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        transcript_list = YouTubeTranscriptApi().list(video_id)
 
         try:
             # Try to fetch English transcript first

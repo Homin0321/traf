@@ -25,10 +25,10 @@ MODEL_OPTIONS = [
 ]
 # Session state keys
 SESSION_KEYS = {
-    "crawled_text": "crawled_text",
+    "scraped_text": "scraped_text",
     "translated_text": "translated_text",
     "summary_text": "summary_text",
-    "url_to_crawl": "url_to_crawl",
+    "url_to_scrape": "url_to_scrape",
     "selected_model": "selected_model",  # Added for model selection
 }
 
@@ -174,8 +174,8 @@ def format_markdown_tables(text):
     return "\n".join(new_lines)
 
 
-def crawl_url(url):
-    """Crawls a URL and saves the result to session_state using trafilatura."""
+def scrap_url(url):
+    """Scraps a URL and saves the result to session_state using trafilatura."""
     downloaded = trafilatura.fetch_url(url)
     if downloaded:
         metadata = trafilatura.extract_metadata(downloaded)
@@ -202,15 +202,15 @@ def crawl_url(url):
                 result = format_markdown_tables(result)
 
             result = fix_markdown_symbol_issue(result)
-            st.session_state[SESSION_KEYS["crawled_text"]] = result
+            st.session_state[SESSION_KEYS["scraped_text"]] = result
         else:
-            st.error("Failed to retrieve markdown content from the crawl result.")
-            st.session_state[SESSION_KEYS["crawled_text"]] = ""
+            st.error("Failed to retrieve markdown content from the scrap result.")
+            st.session_state[SESSION_KEYS["scraped_text"]] = ""
     else:
         st.error("Failed to retrieve content from the URL.")
-        st.session_state[SESSION_KEYS["crawled_text"]] = ""
+        st.session_state[SESSION_KEYS["scraped_text"]] = ""
 
-    # Reset LLM text and summary after crawling
+    # Reset LLM text and summary after scraping
     st.session_state[SESSION_KEYS["translated_text"]] = ""
     st.session_state[SESSION_KEYS["summary_text"]] = ""
 
@@ -407,7 +407,7 @@ def show_markdown_code(markdown_text):
 # --- 4. UI Rendering Functions ---
 def render_sidebar():
     """Renders the sidebar UI."""
-    st.sidebar.title("Traf Web Crawler 🌐")
+    st.sidebar.title("Traf Web Scraper 🌐")
 
     st.sidebar.selectbox(
         "Select Gemini Model",
@@ -415,13 +415,13 @@ def render_sidebar():
         key=SESSION_KEYS["selected_model"],
     )
 
-    st.sidebar.text_input("Enter the URL to crawl", key=SESSION_KEYS["url_to_crawl"])
+    st.sidebar.text_input("Enter the URL to scrape", key=SESSION_KEYS["url_to_scrape"])
 
     st.sidebar.checkbox("Fix List Format", key="fix_list_format")
     st.sidebar.checkbox("Fix Table Format", key="format_markdown")
 
-    if st.sidebar.button("Crawl", width="stretch"):
-        url = st.session_state[SESSION_KEYS["url_to_crawl"]]
+    if st.sidebar.button("Scrape", width="stretch"):
+        url = st.session_state[SESSION_KEYS["url_to_scrape"]]
         if not url:
             st.sidebar.warning("Please enter a URL.")
             return
@@ -435,8 +435,8 @@ def render_sidebar():
             with st.spinner(f"Fetching transcript for {url}..."):
                 transcript = get_youtube_transcript(video_id)
                 if transcript:
-                    st.session_state[SESSION_KEYS["crawled_text"]] = transcript
-                    # Reset LLM text and summary after crawling
+                    st.session_state[SESSION_KEYS["scraped_text"]] = transcript
+                    # Reset LLM text and summary after scraping
                     st.session_state[SESSION_KEYS["translated_text"]] = ""
                     st.session_state[SESSION_KEYS["summary_text"]] = ""
 
@@ -449,23 +449,23 @@ def render_sidebar():
                         "Failed to retrieve transcript. The video might not have captions or they are disabled."
                     )
         else:
-            with st.spinner(f"Crawling {url}..."):
+            with st.spinner(f"Scraping {url}..."):
                 try:
-                    crawl_url(url)
+                    scrap_url(url)
                 except Exception as e:
                     st.error(f"An unexpected error occurred: {e}")
 
     st.sidebar.radio(
         "View Mode",
-        ["Crawled", "Translated", "Summary", "Chatbot"],
+        ["Scraped", "Translated", "Summary", "Chatbot"],
         key="view_mode",
     )
 
     if st.sidebar.button("Show Markdown Code", width="stretch"):
-        mode = st.session_state.get("view_mode", "Crawled")
+        mode = st.session_state.get("view_mode", "Scraped")
         text_to_show = ""
-        if mode == "Crawled":
-            text_to_show = st.session_state.get(SESSION_KEYS["crawled_text"])
+        if mode == "Scraped":
+            text_to_show = st.session_state.get(SESSION_KEYS["scraped_text"])
 
         elif mode == "Translated":
             text_to_show = st.session_state.get(SESSION_KEYS["translated_text"])
@@ -489,13 +489,13 @@ def render_sidebar():
         elif mode != "Chatbot":
             st.sidebar.warning(f"No content in '{mode}' to show.")
 
-    mode = st.session_state.get("view_mode", "Crawled")
+    mode = st.session_state.get("view_mode", "Scraped")
     text_to_download = ""
     file_name = "download.pdf"
 
-    if mode == "Crawled":
-        text_to_download = st.session_state.get(SESSION_KEYS["crawled_text"])
-        file_name = "crawled.pdf"
+    if mode == "Scraped":
+        text_to_download = st.session_state.get(SESSION_KEYS["scraped_text"])
+        file_name = "scraped.pdf"
 
     elif mode == "Translated":
         text_to_download = st.session_state.get(SESSION_KEYS["translated_text"])
@@ -533,56 +533,57 @@ def render_sidebar():
 
 def render_main_content():
     """Renders the main content area."""
-    mode = st.session_state.get("view_mode", "Crawled")
+    mode = st.session_state.get("view_mode", "Scraped")
 
-    crawled_text = st.session_state.get(SESSION_KEYS["crawled_text"])
+    scraped_text = st.session_state.get(SESSION_KEYS["scraped_text"])
     translated_text = st.session_state.get(SESSION_KEYS["translated_text"])
     summary_text = st.session_state.get(SESSION_KEYS["summary_text"])
 
-    if mode == "Crawled":
-        if crawled_text:
-            st.markdown(crawled_text)
+    if mode == "Scraped":
+        if scraped_text:
+            st.markdown(scraped_text)
         else:
-            st.info("No crawled content. Enter a URL and click the 'Crawl' button.")
+            st.info("No scraped content. Enter a URL and click the 'Scrape' button.")
 
     elif mode == "Translated":
-        if crawled_text and not translated_text:
+        if scraped_text and not translated_text:
             with st.spinner("Translating content with Gemini..."):
                 translated_text = convert_by_gemini(
-                    PROMPTS["translation"], crawled_text
+                    PROMPTS["translation"], scraped_text
                 )
                 st.session_state[SESSION_KEYS["translated_text"]] = translated_text
-                st.session_state[SESSION_KEYS["summary_text"]] = (
-                    ""  # Reset summary to force re-summarization
-                )
 
         if translated_text:
             st.markdown(translated_text)
         else:
-            st.info("No translated content.")
+            st.info(
+                "No translated content available. Make sure there is scraped content to translate."
+            )
 
     elif mode == "Summary":
-        if crawled_text and not summary_text:
+        if scraped_text and not summary_text:
             with st.spinner("Generating summary with Gemini..."):
-                summary_text = convert_by_gemini(PROMPTS["summary"], crawled_text)
+                summary_text = convert_by_gemini(PROMPTS["summary"], scraped_text)
                 st.session_state[SESSION_KEYS["summary_text"]] = summary_text
 
         if summary_text:
             st.markdown(summary_text)
         else:
-            st.info("No summarized content.")
+            st.info(
+                "No summary available. Make sure there is scraped content to summarize."
+            )
 
     elif mode == "Chatbot":
-        if crawled_text:
-            chat_with_gemini(crawled_text)
+        if scraped_text:
+            chat_with_gemini(scraped_text)
         else:
-            st.info("No crawled content to chat about. Please run the crawler first.")
+            st.info("No scraped content to chat about. Please run the scraper first.")
 
 
 # --- 5. Main Application Execution ---
 def main():
     """Main application function."""
-    st.set_page_config(layout="wide", page_title="Traf Web Crawler", page_icon="🌐")
+    st.set_page_config(layout="wide", page_title="Traf Web Scraper", page_icon="🌐")
 
     # Load .env file
     load_dotenv()

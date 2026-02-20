@@ -195,6 +195,13 @@ def crawl_url(url):
 ---
 
 {result}"""
+
+            if st.session_state.get("fix_list_format"):
+                result = result.replace("-\n**", "\n- **")
+            if st.session_state.get("format_markdown"):
+                result = format_markdown_tables(result)
+
+            result = fix_markdown_symbol_issue(result)
             st.session_state[SESSION_KEYS["crawled_text"]] = result
         else:
             st.error("Failed to retrieve markdown content from the crawl result.")
@@ -410,6 +417,9 @@ def render_sidebar():
 
     st.sidebar.text_input("Enter the URL to crawl", key=SESSION_KEYS["url_to_crawl"])
 
+    st.sidebar.checkbox("Fix List Format", key="fix_list_format")
+    st.sidebar.checkbox("Fix Table Format", key="format_markdown")
+
     if st.sidebar.button("Crawl", width="stretch"):
         url = st.session_state[SESSION_KEYS["url_to_crawl"]]
         if not url:
@@ -444,8 +454,6 @@ def render_sidebar():
                     crawl_url(url)
                 except Exception as e:
                     st.error(f"An unexpected error occurred: {e}")
-
-    st.sidebar.checkbox("Fix Table Format", key="format_markdown")
 
     st.sidebar.radio(
         "View Mode",
@@ -533,8 +541,6 @@ def render_main_content():
 
     if mode == "Crawled":
         if crawled_text:
-            if st.session_state.get("format_markdown"):
-                crawled_text = format_markdown_tables(crawled_text)
             st.markdown(crawled_text)
         else:
             st.info("No crawled content. Enter a URL and click the 'Crawl' button.")

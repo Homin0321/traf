@@ -44,7 +44,7 @@ PROMPTS = {
             -   **Key Takeaways:** A bulleted list of the most critical points (3-5 items).
             -   **Detailed Summary:** A well-structured paragraph explaining the context and details.
 
-        **Formatting:**
+        **Output Format:**
         -   Use Markdown headers (##, ###) and bullet points.
         -   Ensure the tone is professional and objective.
 
@@ -63,7 +63,17 @@ PROMPTS = {
 
         **Text to Translate:**
         """,
+    "fix_markdown": """
+        Please fix the markdown formatting errors in the following text.
+        Specifically, correct any table formatting errors, list formatting errors,
+        and improper paragraph segmentation. Keep the original content and language intact.
+        Output only the fixed markdown text.
+
+        **Text to Fix:**
+        """,
 }
+
+# --- 2. State Initialization ---
 
 
 # --- 3. Core Logic Functions ---
@@ -124,56 +134,6 @@ def get_youtube_transcript(video_id):
         return None
 
 
-def format_markdown_tables(text):
-    """
-    Formats markdown tables by inserting a header separator line.
-    It identifies tables by looking for consecutive lines with the same number of '|' characters (at least 2).
-    """
-    lines = text.split("\n")
-    new_lines = []
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-        pipe_count = line.count("|")
-
-        if pipe_count >= 2:
-            table_lines_indices = [i]
-            j = i + 1
-            while j < len(lines) and lines[j].count("|") == pipe_count:
-                table_lines_indices.append(j)
-                j += 1
-
-            if len(table_lines_indices) > 1:
-                # This block is a table.
-                header_line = lines[i]
-
-                header_stripped = header_line.strip()
-                cols = header_stripped.split("|")
-                if header_stripped.startswith("|"):
-                    cols = cols[1:]
-                if header_stripped.endswith("|"):
-                    cols = cols[:-1]
-                num_cols = len(cols)
-
-                if num_cols > 0:
-                    separator = "|" + " --- |" * num_cols
-
-                    new_lines.append(header_line)
-                    new_lines.append(separator)
-
-                    for k in range(1, len(table_lines_indices)):
-                        new_lines.append(lines[table_lines_indices[k]])
-
-                    i = j
-                    continue
-
-        # If not a table or a single line, just add the line
-        new_lines.append(line)
-        i += 1
-
-    return "\n".join(new_lines)
-
-
 def scrap_url(url):
     """Scraps a URL and saves the result to session_state using trafilatura."""
     downloaded = trafilatura.fetch_url(url)
@@ -195,11 +155,6 @@ def scrap_url(url):
 ---
 
 {result}"""
-
-            if st.session_state.get("fix_list_format"):
-                result = result.replace("-\n**", "\n- **")
-            if st.session_state.get("format_markdown"):
-                result = format_markdown_tables(result)
 
             result = fix_markdown_symbol_issue(result)
             st.session_state[SESSION_KEYS["scraped_text"]] = result
@@ -417,9 +372,6 @@ def render_sidebar():
 
     st.sidebar.text_input("Enter the URL to scrape", key=SESSION_KEYS["url_to_scrape"])
 
-    st.sidebar.checkbox("Fix List Format", key="fix_list_format")
-    st.sidebar.checkbox("Fix Table Format", key="format_markdown")
-
     if st.sidebar.button("Scrape", width="stretch"):
         url = st.session_state[SESSION_KEYS["url_to_scrape"]]
         if not url:
@@ -454,6 +406,16 @@ def render_sidebar():
                     scrap_url(url)
                 except Exception as e:
                     st.error(f"An unexpected error occurred: {e}")
+
+    if st.sidebar.button("Fix Markdown", width="stretch"):
+        scraped_text = st.session_state.get(SESSION_KEYS["scraped_text"], "")
+        if not scraped_text:
+            st.sidebar.warning("No scraped text available to fix.")
+        else:
+            with st.spinner("Fixing markdown with AI..."):
+                fixed_text = convert_by_gemini(PROMPTS["fix_markdown"], scraped_text)
+                if fixed_text:
+                    st.session_state[SESSION_KEYS["scraped_text"]] = fixed_text
 
     st.sidebar.radio(
         "View Mode",

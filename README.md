@@ -4,7 +4,7 @@
 
 ## ✨ Key Features
 
-*   **Web Scraping**: Extracts main text content from a given URL using `trafilatura`.
+*   **Web Scraping**: Extracts main text content from a given URL using `trafilatura` (with an option to use `Playwright` for JavaScript rendering and anti-bot bypass).
 *   **YouTube Transcript Extraction**: Automatically retrieves subtitles (transcripts) when a YouTube video URL is provided.
 *   **AI Translation & Summary**: Translates extracted text into Korean or summarizes key points using Google Gemini models.
 *   **AI Chatbot**: Engage in context-aware conversations with Gemini based on the scraped content.
@@ -31,6 +31,7 @@ This project recommends running in a Python 3.11+ environment.
 3.  **Install Dependencies**
     ```bash
     pip install -r requirements.txt
+    playwright install chromium
     ```
 
 ## ⚙️ Configuration
@@ -65,6 +66,7 @@ The browser will open automatically, and you can access the application at `http
 
 *   Select a **Gemini Model** from the sidebar to choose the model that fits your performance or speed needs.
 *   Inputting a YouTube link instead of a web page will automatically retrieve the transcript.
+*   If a website blocks scraping or requires JavaScript to load content, check the **Use Playwright (JS rendering / Anti-bot)** option before scraping.
 *   Check **Fix List Format** or **Fix Table Format** in the sidebar if the scraped Markdown rendering looks incorrect.
 *   Change the **View Mode** to switch between Scraped, Translated, Summary, and Chatbot views.
 *   If you like the result, click the **Download PDF** button in the sidebar to save it.

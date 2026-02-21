@@ -6,6 +6,7 @@ import streamlit as st
 import trafilatura
 from dotenv import load_dotenv
 from google import genai
+from playwright.sync_api import sync_playwright
 from weasyprint import HTML
 from youtube_transcript_api import (
     NoTranscriptFound,
@@ -30,6 +31,7 @@ SESSION_KEYS = {
     "summary_text": "summary_text",
     "url_to_scrape": "url_to_scrape",
     "selected_model": "selected_model",  # Added for model selection
+    "use_playwright": "use_playwright",
 }
 
 # Gemini prompts
@@ -83,6 +85,8 @@ def initialize_session_state():
         if key not in st.session_state:
             if key == SESSION_KEYS["selected_model"]:
                 st.session_state[key] = MODEL_OPTIONS[0]
+            elif key == SESSION_KEYS["use_playwright"]:
+                st.session_state[key] = False
             else:
                 st.session_state[key] = ""
 
@@ -134,9 +138,25 @@ def get_youtube_transcript(video_id):
         return None
 
 
-def scrap_url(url):
+def scrap_url(url, use_playwright=False):
     """Scraps a URL and saves the result to session_state using trafilatura."""
-    downloaded = trafilatura.fetch_url(url)
+    downloaded = None
+    if use_playwright:
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                page = browser.new_page()
+                page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                # Wait a short duration to ensure JS-based rendering has completed
+                page.wait_for_timeout(3000)
+                downloaded = page.content()
+                browser.close()
+        except Exception as e:
+            st.warning(f"Playwright encountered an issue: {e}")
+            downloaded = trafilatura.fetch_url(url)
+    else:
+        downloaded = trafilatura.fetch_url(url)
+
     if downloaded:
         metadata = trafilatura.extract_metadata(downloaded)
 
@@ -421,6 +441,11 @@ def render_sidebar():
 
     st.sidebar.text_input("Enter the URL to scrape", key=SESSION_KEYS["url_to_scrape"])
 
+    st.sidebar.checkbox(
+        "Use Playwright",
+        key=SESSION_KEYS["use_playwright"],
+    )
+
     if st.sidebar.button("Scrape", width="stretch"):
         url = st.session_state[SESSION_KEYS["url_to_scrape"]]
         if not url:
@@ -452,7 +477,8 @@ def render_sidebar():
         else:
             with st.spinner(f"Scraping {url}..."):
                 try:
-                    scrap_url(url)
+                    use_pw = st.session_state.get(SESSION_KEYS["use_playwright"], False)
+                    scrap_url(url, use_playwright=use_pw)
                 except Exception as e:
                     st.error(f"An unexpected error occurred: {e}")
 

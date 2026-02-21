@@ -5,3 +5,4 @@ google-genai
 markdown
 weasyprint
 youtube-transcript-api
+playwright

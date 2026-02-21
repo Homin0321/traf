@@ -246,6 +246,36 @@ def convert_by_gemini(instruction, text):
         return None
 
 
+def stream_by_gemini(instruction, text):
+    """Streams converted text using Gemini."""
+    client = get_gemini_client()
+    if not client:
+        yield "Error: Gemini client not initialized."
+        return
+
+    selected_model = st.session_state.get(
+        SESSION_KEYS["selected_model"], MODEL_OPTIONS[0]
+    )
+
+    try:
+        if hasattr(client.models, "generate_content_stream"):
+            response_stream = client.models.generate_content_stream(
+                model=selected_model, contents=instruction + text
+            )
+        else:
+            response_stream = client.models.generate_content(
+                model=selected_model, contents=instruction + text, stream=True
+            )
+
+        for chunk in response_stream:
+            chunk_text = get_response_text(chunk)
+            if chunk_text:
+                yield chunk_text
+    except Exception as e:
+        st.error(f"An error occurred during Gemini processing: {e}")
+        yield ""
+
+
 def initialize_chat_session(context):
     """
     Initialize or reset chat session with transcript context.
@@ -303,6 +333,11 @@ def chat_with_gemini(context):
     ):
         initialize_chat_session(context)
 
+    # Display existing chat messages
+    for message in st.session_state["chat_display_history"]:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
     # Create chat input interface
     user_input = st.chat_input("Ask something about the video...")
 
@@ -312,24 +347,38 @@ def chat_with_gemini(context):
         st.session_state["chat_display_history"].append(
             {"role": "user", "content": user_input}
         )
-        try:
-            # Get AI response
-            response = st.session_state["chat_session"].send_message(user_input)
-            answer = fix_markdown_symbol_issue(get_response_text(response).strip())
-            # Add AI response to chat history
-            st.session_state["chat_display_history"].append(
-                {"role": "assistant", "content": answer}
-            )
-        except Exception as e:
-            st.error(f"Gemini Q&A Error: {e}")
-            # Reset chat session on error
-            initialize_chat_session(context)
-            return
+        with st.chat_message("user"):
+            st.markdown(user_input)
 
-    # Display chat messages
-    for message in st.session_state["chat_display_history"]:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+        with st.chat_message("assistant"):
+            try:
+                # Get AI response via stream
+                if hasattr(st.session_state["chat_session"], "send_message_stream"):
+                    response_stream = st.session_state[
+                        "chat_session"
+                    ].send_message_stream(user_input)
+                else:
+                    response_stream = st.session_state["chat_session"].send_message(
+                        user_input, stream=True
+                    )
+
+                def stream_chat():
+                    for chunk in response_stream:
+                        chunk_text = get_response_text(chunk)
+                        if chunk_text:
+                            yield chunk_text
+
+                answer = st.write_stream(stream_chat())
+                answer = fix_markdown_symbol_issue(answer.strip())
+                # Add AI response to chat history
+                st.session_state["chat_display_history"].append(
+                    {"role": "assistant", "content": answer}
+                )
+            except Exception as e:
+                st.error(f"Gemini Q&A Error: {e}")
+                # Reset chat session on error
+                initialize_chat_session(context)
+                return
 
 
 def download_pdf(markdown_text):
@@ -511,13 +560,12 @@ def render_main_content():
 
     elif mode == "Translated":
         if scraped_text and not translated_text:
-            with st.spinner("Translating content with Gemini..."):
-                translated_text = convert_by_gemini(
-                    PROMPTS["translation"], scraped_text
-                )
-                st.session_state[SESSION_KEYS["translated_text"]] = translated_text
-
-        if translated_text:
+            translated_text = st.write_stream(
+                stream_by_gemini(PROMPTS["translation"], scraped_text)
+            )
+            translated_text = fix_markdown_symbol_issue(translated_text.strip())
+            st.session_state[SESSION_KEYS["translated_text"]] = translated_text
+        elif translated_text:
             st.markdown(translated_text)
         else:
             st.info(
@@ -526,11 +574,12 @@ def render_main_content():
 
     elif mode == "Summary":
         if scraped_text and not summary_text:
-            with st.spinner("Generating summary with Gemini..."):
-                summary_text = convert_by_gemini(PROMPTS["summary"], scraped_text)
-                st.session_state[SESSION_KEYS["summary_text"]] = summary_text
-
-        if summary_text:
+            summary_text = st.write_stream(
+                stream_by_gemini(PROMPTS["summary"], scraped_text)
+            )
+            summary_text = fix_markdown_symbol_issue(summary_text.strip())
+            st.session_state[SESSION_KEYS["summary_text"]] = summary_text
+        elif summary_text:
             st.markdown(summary_text)
         else:
             st.info(

@@ -407,7 +407,7 @@ def render_sidebar():
                 except Exception as e:
                     st.error(f"An unexpected error occurred: {e}")
 
-    if st.sidebar.button("Fix Markdown", width="stretch"):
+    if st.sidebar.button("Fix Markdown format", width="stretch"):
         scraped_text = st.session_state.get(SESSION_KEYS["scraped_text"], "")
         if not scraped_text:
             st.sidebar.warning("No scraped text available to fix.")
@@ -423,7 +423,7 @@ def render_sidebar():
         key="view_mode",
     )
 
-    if st.sidebar.button("Show Markdown Code", width="stretch"):
+    if st.sidebar.button("Show Markdown code", width="stretch"):
         mode = st.session_state.get("view_mode", "Scraped")
         text_to_show = ""
         if mode == "Scraped":
@@ -490,7 +490,9 @@ def render_sidebar():
             )
 
     st.sidebar.divider()
-    st.sidebar.caption("Powered by [trafilatura](https://github.com/adbar/trafilatura)")
+    st.sidebar.caption(
+        "Powered by [Trafilatura](https://github.com/adbar/trafilatura) & [YouTube Transcript API](https://pypi.org/project/youtube-transcript-api)"
+    )
 
 
 def render_main_content():

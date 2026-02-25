@@ -139,52 +139,56 @@ def get_youtube_transcript(video_id):
         return None
 
 
-def scrap_url(url, use_playwright=False):
-    """Scraps a URL and saves the result to session_state using trafilatura."""
+def scrap_url(text_input, use_playwright=False):
+    """Scraps a URL or processes text input and saves the result to session_state using trafilatura."""
     downloaded = None
-    if use_playwright:
-        try:
-            with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True)
-                page = browser.new_page()
-                page.goto(url, wait_until="domcontentloaded", timeout=30000)
-                # Wait a short duration to ensure JS-based rendering has completed
-                page.wait_for_timeout(3000)
-                downloaded = page.content()
-                browser.close()
-        except Exception as e:
-            st.warning(f"Playwright encountered an issue: {e}")
-            downloaded = trafilatura.fetch_url(url)
-    else:
-        downloaded = trafilatura.fetch_url(url)
+    if is_valid_url(text_input):
+        if use_playwright:
+            try:
+                with sync_playwright() as p:
+                    browser = p.chromium.launch(headless=True)
+                    page = browser.new_page()
+                    page.goto(text_input, wait_until="domcontentloaded", timeout=30000)
+                    # Wait a short duration to ensure JS-based rendering has completed
+                    page.wait_for_timeout(3000)
+                    downloaded = page.content()
+                    browser.close()
+            except Exception as e:
+                st.warning(f"Playwright encountered an issue: {e}")
+                downloaded = trafilatura.fetch_url(text_input)
+        else:
+            downloaded = trafilatura.fetch_url(text_input)
 
-    if downloaded:
-        metadata = trafilatura.extract_metadata(downloaded)
+        if downloaded:
+            metadata = trafilatura.extract_metadata(downloaded)
 
-        result = trafilatura.extract(
-            downloaded,
-            include_links=True,
-            include_tables=True,
-            include_formatting=True,
-            output_format="markdown",
-        )
-        if result:
-            if metadata:
-                result = f"""### {metadata.title}
+            result = trafilatura.extract(
+                downloaded,
+                include_links=True,
+                include_tables=True,
+                include_formatting=True,
+                output_format="markdown",
+            )
+            if result:
+                if metadata:
+                    result = f"""### {metadata.title}
 - {metadata.author}, {metadata.date}
 - {metadata.description}
 ---
 
 {result}"""
 
-            result = fix_markdown_symbol_issue(result)
-            st.session_state[SESSION_KEYS["scraped_text"]] = result
+                result = fix_markdown_symbol_issue(result)
+                st.session_state[SESSION_KEYS["scraped_text"]] = result
+            else:
+                st.error("Failed to retrieve markdown content from the scrap result.")
+                st.session_state[SESSION_KEYS["scraped_text"]] = ""
         else:
-            st.error("Failed to retrieve markdown content from the scrap result.")
+            st.error("Failed to retrieve content from the URL.")
             st.session_state[SESSION_KEYS["scraped_text"]] = ""
     else:
-        st.error("Failed to retrieve content from the URL.")
-        st.session_state[SESSION_KEYS["scraped_text"]] = ""
+        # If it's not a valid URL, treat it as plain text
+        st.session_state[SESSION_KEYS["scraped_text"]] = text_input
 
     # Reset LLM text and summary after scraping
     st.session_state[SESSION_KEYS["translated_text"]] = ""
@@ -432,7 +436,7 @@ def show_markdown_code(markdown_text):
 # --- 4. UI Rendering Functions ---
 def render_sidebar():
     """Renders the sidebar UI."""
-    st.sidebar.title("Traf Web Scraper 🌐")
+    st.sidebar.title("Traf Scraper 🌐")
 
     st.sidebar.selectbox(
         "Select Gemini Model",
@@ -440,7 +444,7 @@ def render_sidebar():
         key=SESSION_KEYS["selected_model"],
     )
 
-    st.sidebar.text_input("Enter the URL to scrape", key=SESSION_KEYS["url_to_scrape"])
+    st.sidebar.text_area("Enter the URL or text", key=SESSION_KEYS["url_to_scrape"])
 
     st.sidebar.checkbox(
         "Use Playwright",
@@ -450,14 +454,10 @@ def render_sidebar():
     if st.sidebar.button("Scrape", width="stretch"):
         url = st.session_state[SESSION_KEYS["url_to_scrape"]]
         if not url:
-            st.sidebar.warning("Please enter a URL.")
+            st.sidebar.warning("Please enter a URL or text.")
             return
 
-        if not is_valid_url(url):
-            st.sidebar.error("Please enter a valid URL (e.g., https://example.com)")
-            return
-
-        video_id = get_video_id(url)
+        video_id = get_video_id(url) if is_valid_url(url) else None
         if video_id:
             with st.spinner(f"Fetching transcript for {url}..."):
                 transcript = get_youtube_transcript(video_id)
@@ -476,7 +476,10 @@ def render_sidebar():
                         "Failed to retrieve transcript. The video might not have captions or they are disabled."
                     )
         else:
-            with st.spinner(f"Scraping {url}..."):
+            spinner_msg = (
+                f"Scraping {url}..." if is_valid_url(url) else "Processing text..."
+            )
+            with st.spinner(spinner_msg):
                 try:
                     use_pw = st.session_state.get(SESSION_KEYS["use_playwright"], False)
                     scrap_url(url, use_playwright=use_pw)
@@ -623,7 +626,7 @@ def render_main_content():
 # --- 5. Main Application Execution ---
 def main():
     """Main application function."""
-    st.set_page_config(layout="wide", page_title="Traf Web Scraper", page_icon="🌐")
+    st.set_page_config(layout="wide", page_title="Traf Scraper", page_icon="🌐")
 
     # Load .env file
     load_dotenv()

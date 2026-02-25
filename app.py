@@ -567,7 +567,7 @@ def render_sidebar():
 
     st.sidebar.divider()
     st.sidebar.caption(
-        "Powered by [Trafilatura](https://github.com/adbar/trafilatura) & [YouTube Transcript API](https://pypi.org/project/youtube-transcript-api)"
+        "Powered by [Trafilatura](https://github.com/adbar/trafilatura), [Playwright](https://playwright.dev/) & [YouTube Transcript API](https://pypi.org/project/youtube-transcript-api)"
     )
 
 

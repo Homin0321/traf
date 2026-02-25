@@ -364,7 +364,7 @@ def chat_with_gemini(context):
             st.markdown(message["content"])
 
     # Create chat input interface
-    user_input = st.chat_input("Ask something about the video...")
+    user_input = st.chat_input("Ask something about the text...")
 
     # Process user message and get AI response
     if user_input:
@@ -393,8 +393,10 @@ def chat_with_gemini(context):
                         if chunk_text:
                             yield chunk_text
 
-                answer = st.write_stream(stream_chat())
+                answer_container = st.empty()
+                answer = answer_container.write_stream(stream_chat())
                 answer = fix_markdown_symbol_issue(answer.strip())
+                answer_container.markdown(answer)
                 # Add AI response to chat history
                 st.session_state["chat_display_history"].append(
                     {"role": "assistant", "content": answer}
@@ -590,10 +592,12 @@ def render_main_content():
 
     elif mode == "Translated":
         if scraped_text and not translated_text:
-            translated_text = st.write_stream(
+            translated_text_container = st.empty()
+            translated_text = translated_text_container.write_stream(
                 stream_by_gemini(PROMPTS["translation"], scraped_text)
             )
             translated_text = fix_markdown_symbol_issue(translated_text.strip())
+            translated_text_container.markdown(translated_text)
             st.session_state[SESSION_KEYS["translated_text"]] = translated_text
         elif translated_text:
             st.markdown(translated_text)
@@ -604,10 +608,12 @@ def render_main_content():
 
     elif mode == "Summary":
         if scraped_text and not summary_text:
-            summary_text = st.write_stream(
+            summary_text_container = st.empty()
+            summary_text = summary_text_container.write_stream(
                 stream_by_gemini(PROMPTS["summary"], scraped_text)
             )
             summary_text = fix_markdown_symbol_issue(summary_text.strip())
+            summary_text_container.markdown(summary_text)
             st.session_state[SESSION_KEYS["summary_text"]] = summary_text
         elif summary_text:
             st.markdown(summary_text)

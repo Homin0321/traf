@@ -33,6 +33,7 @@ SESSION_KEYS = {
     "url_to_scrape": "url_to_scrape",
     "selected_model": "selected_model",  # Added for model selection
     "use_playwright": "use_playwright",
+    "include_image": "include_image",
 }
 
 # Gemini prompts
@@ -86,7 +87,10 @@ def initialize_session_state():
         if key not in st.session_state:
             if key == SESSION_KEYS["selected_model"]:
                 st.session_state[key] = MODEL_OPTIONS[0]
-            elif key == SESSION_KEYS["use_playwright"]:
+            elif (
+                key == SESSION_KEYS["use_playwright"]
+                or key == SESSION_KEYS["include_image"]
+            ):
                 st.session_state[key] = False
             else:
                 st.session_state[key] = ""
@@ -139,7 +143,7 @@ def get_youtube_transcript(video_id):
         return None
 
 
-def scrap_url(text_input, use_playwright=False):
+def scrap_url(text_input, use_playwright=False, include_images=False):
     """Scraps a URL or processes text input and saves the result to session_state using trafilatura."""
     downloaded = None
     if is_valid_url(text_input):
@@ -167,6 +171,7 @@ def scrap_url(text_input, use_playwright=False):
                 include_links=True,
                 include_tables=True,
                 include_formatting=True,
+                include_images=include_images,
                 output_format="markdown",
             )
             if result:
@@ -453,6 +458,11 @@ def render_sidebar():
         key=SESSION_KEYS["use_playwright"],
     )
 
+    st.sidebar.checkbox(
+        "Include Image",
+        key=SESSION_KEYS["include_image"],
+    )
+
     if st.sidebar.button("Scrape", width="stretch"):
         url = st.session_state[SESSION_KEYS["url_to_scrape"]]
         if not url:
@@ -484,7 +494,8 @@ def render_sidebar():
             with st.spinner(spinner_msg):
                 try:
                     use_pw = st.session_state.get(SESSION_KEYS["use_playwright"], False)
-                    scrap_url(url, use_playwright=use_pw)
+                    inc_img = st.session_state.get(SESSION_KEYS["include_image"], False)
+                    scrap_url(url, use_playwright=use_pw, include_images=inc_img)
                 except Exception as e:
                     st.error(f"An unexpected error occurred: {e}")
 
